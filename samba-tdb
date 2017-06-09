@@ -1,0 +1,39 @@
+#!/bin/bash
+# /etc/init.d/samba-tdb
+
+### BEGIN INIT INFO
+# Provides:          samba-tdb
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: backup and restore samba tdb files with system
+# Description:       This script is used to backup, validate, and restore the samba tdb files. It also manages the cleanup of old tdb backups on shutdown.
+### END INIT INFO
+
+log_file="/var/log/samba/samba-tdb.log"
+tdb_dir="/var/lib/samba/"
+bak_age="14"
+
+case "$1" in
+    start|validate)
+        echo "$(date +%F-%T) - System startup: validating Samba .tdb files." | tee -a "$log_file"
+        tdbbackup -v /var/lib/samba/*.tdb >> "$log_file" 2>&1
+        ;;
+    stop|backup)
+        echo "$(date +%F-%T) - System shutdown: backing up current Samba .tdb files and cleaning up old ones." | tee -a "$log_file"
+        tdbbackup $tdb_dir*.tdb >> "$log_file" 2>&1
+        for f in $tdb_dir*.bak; do cp -a "$f" "$f.$(date +%Y%m%d%H%M)"; done
+        find $tdb_dir*.bak.* -mtime +$bak_age -exec rm {} \; >> "$log_file" 2>&1
+        ;;
+    *)
+        echo "Usage: /etc/init.d/samba-tdb (start|validate)|(stop|backup)"
+        exit 1
+        ;;
+esac
+
+exit 0
+
+# Author: r4mzy <r4mzy.co.za>
+# Project home: https://github.com/R4mzy/samba-tdb
+# v. 1.0.0-20170609
